@@ -2,36 +2,73 @@ import React, {useEffect, useState} from 'react';
 import './App.css';
 import axios from "axios";
 import Card from "./components/card/Card";
+import Pagination from "./components/pagination/Pagination";
+import logo from "./assets/images/logo.png"
 
 function App() {
   const [pokemon, setPokemon] = useState([]);
+  const [currentPageUrl, setCurrentPageUrl] = useState('https://pokeapi.co/api/v2/pokemon/');
+  const [prevPageUrl, setPrevPageUrl] = useState();
+  const [nextPageUrl, setNextPageUrl] = useState();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    async function fetchdata() {
+    const controller = new AbortController();
+    async function fetchData() {
+      setLoading(true);
       try {
-        const result = await axios.get('https://pokeapi.co/api/v2/pokemon/jigglypuff');
-        console.log(result.data);
-        setPokemon(result.data);
+        setError(false);
+        const result = await axios.get(currentPageUrl, {
+          signal: controller.signal,
+        });
+        console.log(result.data.results);
+        setNextPageUrl(result.data.next);
+        setPrevPageUrl(result.data.previous);
+        setPokemon(result.data.results);
       } catch (e) {
         console.error(e);
+        setError(true);
       }
+      setLoading(false);
     }
 
-    fetchdata();
-  }, [])
+    fetchData();
 
+    return function cleanup() {
+      controller.abort();
+    }
+  }, [currentPageUrl])
+
+  function gotoNextPage() {
+    setCurrentPageUrl(nextPageUrl);
+  }
+
+  function gotoPrevPage() {
+    setCurrentPageUrl(prevPageUrl);
+  }
 
   return (
     <>
-      {Object.keys(pokemon).length > 0 &&
-        <Card
-          name={pokemon.name}
-          image={pokemon.sprites.front_default}
-          moves={pokemon.moves.length}
-          weight={pokemon.weight}
-          abilities={pokemon.abilities}
-        ></Card>
-      }
+      <header className="header">
+        <img src={logo} alt="Pokemon Logo"/>
+      </header>
+      
+      <Pagination
+        gotoNextPage={nextPageUrl ? gotoNextPage : null}
+        gotoPrevPage={prevPageUrl ? gotoPrevPage : null}
+      />
+
+      {loading && <span>Loading...</span>}
+      {error && <span>404 not found</span>}
+      <div className="container">
+        {pokemon.map((item) => (
+          <Card
+            key={item.name}
+            url={item.url}
+          ></Card>
+        ))}
+      </div>
     </>
   );
 }
